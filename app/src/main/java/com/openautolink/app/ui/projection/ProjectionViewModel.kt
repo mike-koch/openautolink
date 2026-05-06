@@ -65,6 +65,10 @@ data class ProjectionUiState(
     val videoScalingMode: String = AppPreferences.DEFAULT_VIDEO_SCALING_MODE,
     val aaPixelAspect: Int = -1,
     val aaDpi: Int = 160,
+    /** Density that was actually sent to the phone in the SDR.
+     *  0 until first session built. Surfaced in Stats overlay so the user
+     *  can see what auto-DPI picked vs. their manual slider value. */
+    val effectiveDpi: Int = 0,
     val aaWidthMargin: Int = 0,
     val aaHeightMargin: Int = 0,
     val aaAutoMargins: Boolean = AppPreferences.DEFAULT_AA_AUTO_MARGINS,
@@ -195,6 +199,7 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
         preferences.videoScalingMode,
         sessionManager.wifiFrequencyMhz,
         preferences.aaDpi,
+        sessionManager.effectiveDpi,
         preferences.aaPixelAspect,
         preferences.aaWidthMargin,
         preferences.aaHeightMargin,
@@ -223,13 +228,14 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
             videoScalingMode = values[16] as String,
             wifiFrequencyMhz = values[17] as Int,
             aaDpi = values[18] as Int,
-            aaPixelAspect = values[19] as Int,
-            aaWidthMargin = values[20] as Int,
-            aaHeightMargin = values[21] as Int,
-            aaAutoMargins = values[22] as Boolean,
-            fileLoggingActive = values[23] as Boolean,
-            fileLoggingPath = values[24] as? String,
-            fileLoggingEnabled = values[25] as Boolean,
+            effectiveDpi = values[19] as Int,
+            aaPixelAspect = values[20] as Int,
+            aaWidthMargin = values[21] as Int,
+            aaHeightMargin = values[22] as Int,
+            aaAutoMargins = values[23] as Boolean,
+            fileLoggingActive = values[24] as Boolean,
+            fileLoggingPath = values[25] as? String,
+            fileLoggingEnabled = values[26] as Boolean,
         )
     }.stateIn(
         viewModelScope,

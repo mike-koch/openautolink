@@ -1469,7 +1469,7 @@ private fun VideoTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
                 .padding(top = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            listOf(120, 160, 240, 320, 480).forEach { preset ->
+            listOf(96, 132, 160, 200, 240, 320, 480).forEach { preset ->
                 val isSelected = uiState.aaDpi == preset
                 Surface(
                     shape = MaterialTheme.shapes.small,

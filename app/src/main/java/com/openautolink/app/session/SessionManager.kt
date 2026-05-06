@@ -113,6 +113,12 @@ class SessionManager(
     val touchWidth: StateFlow<Int> = _touchWidth.asStateFlow()
     val touchHeight: StateFlow<Int> = _touchHeight.asStateFlow()
 
+    // Last density we sent in the SDR. Diagnostic-only — surfaced in the
+    // Stats-for-nerds overlay so the user can see what auto-DPI picked vs.
+    // their manual slider. 0 until the first session has built its SDR.
+    private val _effectiveDpi = MutableStateFlow(0)
+    val effectiveDpi: StateFlow<Int> = _effectiveDpi.asStateFlow()
+
     // Last-known OS-reported safe area (system bars + display cutouts) in
     // pixels. Fed by ProjectionScreen via [setSystemInsets] whenever the
     // composition picks up new WindowInsets. Used as fallback for AA
@@ -711,6 +717,7 @@ class SessionManager(
         )
         _touchWidth.value = resW
         _touchHeight.value = resH
+        _effectiveDpi.value = effectiveDpi
 
         // Multi-phone: only relevant in nearby mode
         if (directTransport == "nearby") {

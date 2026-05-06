@@ -597,6 +597,7 @@ fun ProjectionScreen(
                 phoneBatteryLevel = uiState.phoneBatteryLevel,
                 aaPixelAspect = uiState.aaPixelAspect,
                 aaDpi = uiState.aaDpi,
+                effectiveDpi = uiState.effectiveDpi,
                 wifiFrequencyMhz = uiState.wifiFrequencyMhz,
                 modifier = Modifier
                     .align(Alignment.BottomStart)
@@ -1259,6 +1260,7 @@ private fun VideoStatsOverlay(
     phoneBatteryLevel: Int?,
     aaPixelAspect: Int,
     aaDpi: Int,
+    effectiveDpi: Int,
     wifiFrequencyMhz: Int = 0,
     modifier: Modifier = Modifier
 ) {
@@ -1305,6 +1307,10 @@ private fun VideoStatsOverlay(
                     StatLine("Resolution", "${stats.width}x${stats.height}")
                 }
                 StatLine("DPI", "$aaDpi (real)")
+                if (effectiveDpi > 0 && effectiveDpi != aaDpi) {
+                    StatLine("DPI sent", "$effectiveDpi (auto)",
+                        valueColor = Color(0xFF64B5F6))
+                }
                 if (aaPixelAspect > 0) {
                     StatLine("Pixel Aspect", "${"%.4f".format(aaPixelAspect / 10000f)} (${aaPixelAspect}e⁻⁴)")
                 } else {
