@@ -140,30 +140,26 @@ fun ProjectionScreen(
     // start()/reconnect() picks it up as fallback when user hasn't
     // overridden the values in settings.
     //
-    // Only push when system bars are actually drawn (system_ui_visible mode).
-    // In fullscreen_immersive the bars are hidden, but
-    // getInsetsIgnoringVisibility() still returns the would-be sizes — if
-    // we auto-merged those into content_insets, AA would reserve space for
-    // chrome that isn't there and fill it with its own gradient. Cutouts
-    // are not currently propagated to the session — set them via the
-    // Settings → Display Insets editor for vehicles with curves.
-    val sysSafeTop: Int
-    val sysSafeBottom: Int
-    val sysSafeLeft: Int
-    val sysSafeRight: Int
-    if (uiState.displayMode == "system_ui_visible") {
-        sysSafeTop = maxOf(barTop, cutTop)
-        sysSafeBottom = maxOf(barBottom, cutBottom)
-        sysSafeLeft = maxOf(barLeft, cutLeft)
-        sysSafeRight = maxOf(barRight, cutRight)
-    } else {
-        sysSafeTop = 0
-        sysSafeBottom = 0
-        sysSafeLeft = 0
-        sysSafeRight = 0
-    }
-    LaunchedEffect(sysSafeTop, sysSafeBottom, sysSafeLeft, sysSafeRight) {
-        viewModel.setSystemInsets(sysSafeTop, sysSafeBottom, sysSafeLeft, sysSafeRight)
+    // We do NOT auto-push system bar / cutout insets to AA as
+    // `content_insets`. In `system_ui_visible` mode the outer Box already
+    // pads the SurfaceView away from the chrome, and auto-margin +
+    // auto-DPI use the padded render rect — so AA naturally only fills
+    // the chrome-free area. Pushing insets ALSO would double-count: AA
+    // would shrink ITS UI inside the codec frame, leaving us with a
+    // small island of UI inside an already-shrunk surface.
+    //
+    // In `fullscreen_immersive` we want AA to use the full panel; no
+    // insets needed.
+    //
+    // Curved-corner / cutout cars where AAOS doesn't model the curve in
+    // its insets API still need a way to tell AA "stay X pixels away
+    // from the right edge". That's the Settings → Display Insets editor
+    // (per-edge user override). Push those values verbatim — they're
+    // the ONLY auto/system contribution to AA's content_insets now;
+    // SessionManager merges them with any user-set safeAreaTop/Bottom/etc.
+    LaunchedEffect(uiState.safeAreaTop, uiState.safeAreaBottom,
+                   uiState.safeAreaLeft, uiState.safeAreaRight) {
+        viewModel.setSystemInsets(0, 0, 0, 0)
     }
 
     val density = LocalDensity.current
@@ -204,8 +200,8 @@ fun ProjectionScreen(
         ) {
             val rrW = constraints.maxWidth
             val rrH = constraints.maxHeight
-            LaunchedEffect(rrW, rrH, panelDpi) {
-                viewModel.setRenderRect(rrW, rrH, panelDpi)
+            LaunchedEffect(rrW, rrH, panelDpi, uiState.displayMode) {
+                viewModel.setRenderRect(rrW, rrH, panelDpi, uiState.displayMode)
             }
         }
         // ── Video surface rendering ────────────────────────────────────────

@@ -113,8 +113,8 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
      * SessionManager so auto-DPI math can pick a density that produces
      * native-AAOS-equivalent UI sizes regardless of displayMode.
      */
-    fun setRenderRect(widthPx: Int, heightPx: Int, panelDpi: Int) {
-        sessionManager.setRenderRect(widthPx, heightPx, panelDpi)
+    fun setRenderRect(widthPx: Int, heightPx: Int, panelDpi: Int, displayMode: String? = null) {
+        sessionManager.setRenderRect(widthPx, heightPx, panelDpi, displayMode)
     }
 
     private val touchForwarder: TouchForwarder = TouchForwarderImpl { touchMessage ->

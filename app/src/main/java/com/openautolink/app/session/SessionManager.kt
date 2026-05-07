@@ -146,10 +146,12 @@ class SessionManager(
     @Volatile private var renderRectWPx: Int = 0
     @Volatile private var renderRectHPx: Int = 0
     @Volatile private var panelDensityDpi: Int = 0
-    fun setRenderRect(widthPx: Int, heightPx: Int, panelDpi: Int) {
+    @Volatile private var lastDisplayMode: String = AppPreferences.DEFAULT_DISPLAY_MODE
+    fun setRenderRect(widthPx: Int, heightPx: Int, panelDpi: Int, displayMode: String? = null) {
         renderRectWPx = widthPx.coerceAtLeast(0)
         renderRectHPx = heightPx.coerceAtLeast(0)
         panelDensityDpi = panelDpi.coerceAtLeast(0)
+        if (!displayMode.isNullOrBlank()) lastDisplayMode = displayMode
     }
 
     // Audio player
@@ -657,30 +659,54 @@ class SessionManager(
 
         OalLog.i(TAG, "SDR AR config: scalingMode=$scalingMode marginW=$computedWidthMargin marginH=$computedHeightMargin pixelAspectE4=$computedPixelAspect")
 
-        // Panel dims — used by C++ for (a) landscape-vs-portrait tier
-        // selection in auto-negotiate, and (b) per-tier auto-margin calc
-        // when the user hasn't manually overridden margins.
-        val (panelW, panelH) = try {
+        // Panel dims sent to C++ — these drive (a) landscape-vs-portrait
+        // codec tier selection in auto-negotiate, and (b) per-tier
+        // auto-margin calc.
+        //
+        // We send the LIVE RENDER RECT here, not the full panel. The
+        // renderer (ProjectionScreen Crop mode) uses the same render rect
+        // to compute its zoom factor; so by feeding both ends the same
+        // rectangle, the codec margin AA bakes in matches what the
+        // renderer crops away. In `system_ui_visible` mode this means the
+        // C++ side computes margins for the chrome-free rect (e.g.
+        // 2914×919), giving AA the right amount of unusable area at the
+        // bottom of the codec frame so its dock/status stays visible. In
+        // `fullscreen_immersive` mode renderRect equals the panel.
+        //
+        // Falls back to WindowManager when the renderer hasn't reported
+        // yet (first connect before composition); mostly harmless because
+        // a reconnect happens on first user action and the render rect is
+        // populated by then.
+        val (panelW, panelH) = if (renderRectWPx > 0 && renderRectHPx > 0) {
+            renderRectWPx to renderRectHPx
+        } else try {
             val wm = ctx.getSystemService(android.content.Context.WINDOW_SERVICE) as android.view.WindowManager
             val b = wm.currentWindowMetrics.bounds
             b.width() to b.height()
         } catch (_: Exception) {
             0 to 0
         }
-        OalLog.i(TAG, "Panel dims: ${panelW}x${panelH}")
+        OalLog.i(TAG, "Panel dims: ${panelW}x${panelH} (mode=$lastDisplayMode)")
 
         val session = AasdkSession(scope, ctx)
         session.transportMode = directTransport
-        // Effective AA content_insets: user-set value if > 0, else fall
-        // back to OS-reported insets (system bars + display cutouts) so a
-        // car with a curved corner reports it to AA out of the box.
-        val effSafeTop = if (safeAreaTop > 0) safeAreaTop else sysInsetTop
-        val effSafeBottom = if (safeAreaBottom > 0) safeAreaBottom else sysInsetBottom
-        val effSafeLeft = if (safeAreaLeft > 0) safeAreaLeft else sysInsetLeft
-        val effSafeRight = if (safeAreaRight > 0) safeAreaRight else sysInsetRight
+        // Effective AA content_insets:
+        //  - In `system_ui_visible` mode, the SurfaceView is already inside
+        //    the chrome-free area (Compose padding handles it), so AA's
+        //    content_insets must be 0 — pushing values would double-shrink
+        //    the UI inside an already-shrunk surface. The user's safe-area
+        //    pref is preserved in DataStore but ignored in this mode.
+        //  - In `fullscreen_immersive` mode the user's pref applies (this
+        //    is where curved-corner padding lives, since AAOS doesn't
+        //    surface curves through WindowInsets).
+        val applyUserSafeArea = lastDisplayMode != "system_ui_visible"
+        val effSafeTop = if (applyUserSafeArea) safeAreaTop else 0
+        val effSafeBottom = if (applyUserSafeArea) safeAreaBottom else 0
+        val effSafeLeft = if (applyUserSafeArea) safeAreaLeft else 0
+        val effSafeRight = if (applyUserSafeArea) safeAreaRight else 0
         OalLog.i(TAG, "Effective AA content_insets: top=$effSafeTop bottom=$effSafeBottom " +
-                "left=$effSafeLeft right=$effSafeRight (user=$safeAreaTop/$safeAreaBottom/" +
-                "$safeAreaLeft/$safeAreaRight, sys=$sysInsetTop/$sysInsetBottom/$sysInsetLeft/$sysInsetRight)")
+                "left=$effSafeLeft right=$effSafeRight (mode=$lastDisplayMode, " +
+                "userPref=$safeAreaTop/$safeAreaBottom/$safeAreaLeft/$safeAreaRight)")
 
         session.manualIpAddress = manualIpAddress
         session.sdrConfig = AasdkSdrConfig(
