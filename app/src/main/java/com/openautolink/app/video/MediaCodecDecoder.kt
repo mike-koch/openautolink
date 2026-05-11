@@ -52,6 +52,14 @@ class MediaCodecDecoder(
     override val stats: StateFlow<VideoStats> = _stats.asStateFlow()
 
     @Volatile private var codec: MediaCodec? = null
+    /** Serializes releaseCodec invocations. Without this, the drain thread,
+     *  the frame-input coroutine, the surface-detach path, and the
+     *  SessionManager teardown can all race into release() concurrently and
+     *  produce a storm of stop()/release() calls on the same MediaCodec
+     *  instance — observed in production as 20+ "Codec released (reset #1)"
+     *  log lines at the same millisecond, which on some Qualcomm decoders
+     *  leaves the codec in an unrecoverable state. */
+    private val codecReleaseLock = Any()
     @Volatile private var activeDecoderName: String? = null
     @Volatile private var surface: Surface? = null
     private var surfaceWidth: Int = 0
@@ -793,25 +801,25 @@ class MediaCodecDecoder(
     }
 
     private fun releaseCodec() {
-        val wasActive = codec != null
-        stopDrainThread()
-        try {
-            codec?.stop()
-        } catch (_: Exception) {}
-        try {
-            codec?.release()
-        } catch (_: Exception) {}
-        if (wasActive) {
+        synchronized(codecReleaseLock) {
+            val current = codec ?: return  // already released; nothing to do
+            stopDrainThread()
+            try {
+                current.stop()
+            } catch (_: Exception) {}
+            try {
+                current.release()
+            } catch (_: Exception) {}
             codecResetCount++
             DiagnosticLog.i("video", "Codec released (reset #$codecResetCount), renderGate -> false")
+            codec = null
+            activeDecoderName = null
+            receivedIdr = false
+            renderingEnabled = false
+            seedIdrTimeMs = 0
+            lastQueuedPtsMs = -1
+            consecutiveDrops = 0
         }
-        codec = null
-        activeDecoderName = null
-        receivedIdr = false
-        renderingEnabled = false
-        seedIdrTimeMs = 0
-        lastQueuedPtsMs = -1
-        consecutiveDrops = 0
     }
 
     /**
