@@ -85,9 +85,13 @@ class AasdkSession(
     @Volatile
     private var explicitStop = false
 
-    /** Consecutive reconnect failures — drives exponential backoff. */
+    /** Consecutive reconnect failures — drives exponential backoff. Also
+     *  exposed as a StateFlow so the UI controller can escalate (e.g., open
+     *  the phone picker) after a threshold of repeated failures. */
     @Volatile
     private var consecutiveReconnectFailures = 0
+    private val _reconnectAttempt = MutableStateFlow(0)
+    val reconnectAttempt: StateFlow<Int> = _reconnectAttempt.asStateFlow()
 
     /** True when the last failure was an AA protocol/handshake error (Error 30). */
     @Volatile
@@ -100,6 +104,7 @@ class AasdkSession(
     fun start() {
         explicitStop = false
         consecutiveReconnectFailures = 0
+        _reconnectAttempt.value = 0
         lastFailureWasProtocolError = false
         _connectionState.value = ConnectionState.DISCONNECTED
 
@@ -276,6 +281,7 @@ class AasdkSession(
     override fun onSessionStarted() {
         OalLog.i(TAG, "AA session started (native)")
         consecutiveReconnectFailures = 0
+        _reconnectAttempt.value = 0
         lastFailureWasProtocolError = false
         scope.launch {
             _connectionState.value = ConnectionState.CONNECTED
@@ -298,6 +304,7 @@ class AasdkSession(
             // retries connecting once WiFi comes back.
             if (!explicitStop) {
                 consecutiveReconnectFailures++
+                _reconnectAttempt.value = consecutiveReconnectFailures
 
                 // Exponential backoff: 3s base, longer if protocol error (phone
                 // needs time to tear down old SSL session). Cap at 30s.

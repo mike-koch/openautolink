@@ -102,6 +102,17 @@ class SessionManager(
     private val _statusMessage = MutableStateFlow("Ready")
     val statusMessage: StateFlow<String> = _statusMessage.asStateFlow()
 
+    /**
+     * Mirror of [AasdkSession.reconnectAttempt] hoisted to SessionManager so
+     * observers (UI controller, status banner) don't have to track which
+     * AasdkSession instance is current. Updated by the per-session collector
+     * in [startSession] and reset to 0 whenever a new session is wired up.
+     * 0 = no failures yet (or a session is healthy); N > 0 = currently in
+     * the Nth consecutive reconnect attempt.
+     */
+    private val _reconnectAttempt = MutableStateFlow(0)
+    val reconnectAttempt: StateFlow<Int> = _reconnectAttempt.asStateFlow()
+
     // Video decoder
     private var _videoDecoder: VideoDecoder? = null
     val videoDecoder: VideoDecoder? get() = _videoDecoder
@@ -758,26 +769,51 @@ class SessionManager(
         _effectiveDpi.value = effectiveDpi
 
         aasdkSession = session
+        // Reset the mirrored reconnect counter at session boundary. The
+        // per-session collector below will republish updates as they fire.
+        _reconnectAttempt.value = 0
 
         // Observe session state
         scope.launch {
             session.connectionState.collect { connState ->
                 val newState = connState.toSessionState()
                 _sessionState.value = newState
+                val attempt = _reconnectAttempt.value
                 _statusMessage.value = when (newState) {
-                    SessionState.IDLE -> when (directTransport) {
-                        "usb" -> "USB: ${UsbConnectionManager.status.value}"
-                        else -> "Searching for phone…"
-                    }
-                    SessionState.CONNECTING -> "Phone connecting..."
+                    SessionState.IDLE ->
+                        if (attempt > 0) "Reconnecting (attempt $attempt)…"
+                        else when (directTransport) {
+                            "usb" -> "USB: ${UsbConnectionManager.status.value}"
+                            else -> "Searching for phone…"
+                        }
+                    SessionState.CONNECTING ->
+                        if (attempt > 0) "Reconnecting (attempt $attempt)…"
+                        else "Phone connecting..."
                     SessionState.CONNECTED -> "Handshake..."
                     SessionState.STREAMING -> "Streaming"
-                    SessionState.ERROR -> "Error"
+                    SessionState.ERROR ->
+                        if (attempt > 0) "Reconnecting (attempt $attempt)…"
+                        else "Error"
                 }
                 if (newState == SessionState.STREAMING) {
                     startLocationForwarding(session)
                     _vehicleDataForwarder?.start()
                     _imuForwarder?.start()
+                }
+            }
+        }
+
+        // Mirror per-session reconnect-attempt counter so observers (UI banner,
+        // 3-failure picker escalation) don't have to track AasdkSession identity.
+        scope.launch {
+            session.reconnectAttempt.collect { attempt ->
+                _reconnectAttempt.value = attempt
+                // Also refresh the status message so the banner updates when
+                // the attempt counter advances without an accompanying state
+                // change (the connection-state collector above only fires on
+                // state transitions).
+                if (attempt > 0 && _sessionState.value != SessionState.STREAMING) {
+                    _statusMessage.value = "Reconnecting (attempt $attempt)…"
                 }
             }
         }

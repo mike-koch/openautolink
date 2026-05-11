@@ -326,6 +326,14 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
      * always-USB-log captures once we have real wake-gap data.
      */
     private val LONG_WAKE_CLEAR_ACTIVE_PHONE_MS = 60_000L  // 1 minute
+    /**
+     * Consecutive auto-reconnect attempts after which we escalate to the
+     * phone picker. Auto-reconnect with backoff is fine for short blips but
+     * if we're this far in, the user needs to intervene (wrong phone,
+     * companion not running, network change). 3 attempts ≈ 9–60 s of trying
+     * given the existing exponential backoff in AasdkSession.
+     */
+    private val PICKER_ESCALATION_THRESHOLD = 3
     private val connectLock = Any()
 
     fun connect() {
@@ -709,6 +717,42 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
                     _activePhoneId.value = null
                 }
             }
+        }
+        // Escalate to the picker after [PICKER_ESCALATION_THRESHOLD]
+        // consecutive auto-reconnect failures. The reconnect itself is fine
+        // (keeps retrying with backoff) but if we're failing this much, the
+        // user almost certainly needs to intervene — wrong phone selected,
+        // companion not running, network changed, etc. Open the chooser with
+        // a contextual message so they have one tap to resolve it.
+        viewModelScope.launch {
+            sessionManager.reconnectAttempt
+                .collect { attempt ->
+                    if (attempt < PICKER_ESCALATION_THRESHOLD) return@collect
+                    // Don't fight the user: if the chooser is already open
+                    // (they might be mid-selection) or always-ask is on
+                    // (chooser-driven mode), don't re-open or re-set the
+                    // message.
+                    if (_showPhoneChooser.value) return@collect
+                    if (alwaysAskPhone.value) return@collect
+                    val mode = connectionMode.value
+                    if (mode != AppPreferences.CONNECTION_MODE_CAR_HOTSPOT) return@collect
+
+                    val activeId = _activePhoneId.value
+                    val defaultId = defaultPhoneId.value
+                    val targetId = activeId ?: defaultId.takeIf { it.isNotBlank() }
+                    val targetName = targetId?.let { id ->
+                        knownPhonesStore.phones.first()
+                            .firstOrNull { it.phoneId == id }?.friendlyName
+                    } ?: "your phone"
+                    OalLog.w(
+                        TAG,
+                        "Reconnect attempt $attempt reached escalation threshold — opening chooser",
+                    )
+                    _carHotspotChooserMessage.value =
+                        "Couldn't reach $targetName after $attempt attempts. " +
+                            "Pick a phone or press Scan."
+                    _showPhoneChooser.value = true
+                }
         }
         // Drive the [carHotspotStatus] flow from connection mode +
         // sessionState + chooser visibility + switching flag + default-set
