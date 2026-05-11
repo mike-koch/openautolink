@@ -244,23 +244,6 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
     init {
         registerTransportNetworkCallback()
 
-        // Resolve the projection overlay's "connected phone" label from
-        // whatever we currently know: prefer the live mDNS friendly_name for
-        // [_activePhoneId], fall back to the known-phones store entry, and
-        // null out when no phone is active. Recomputes when any of the three
-        // inputs change.
-        viewModelScope.launch {
-            kotlinx.coroutines.flow.combine(
-                _activePhoneId,
-                phoneDiscovery.phones,
-                knownPhonesStore.phones,
-            ) { activeId, discovered, known ->
-                if (activeId.isNullOrBlank()) return@combine null
-                discovered.firstOrNull { it.phoneId == activeId }?.friendlyName
-                    ?: known.firstOrNull { it.phoneId == activeId }?.friendlyName
-            }.collect { name -> _phoneName.value = name }
-        }
-
         // Collect video and audio stats when streaming
         viewModelScope.launch {
             sessionManager.sessionState.collect { state ->
@@ -661,6 +644,25 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
     val activePhoneId: StateFlow<String?> = _activePhoneId.asStateFlow()
 
     init {
+        // Resolve the projection overlay's "connected phone" label from
+        // whatever we currently know: prefer the live mDNS friendly_name for
+        // [_activePhoneId], fall back to the known-phones store entry, and
+        // null out when no phone is active. Recomputes when any of the three
+        // inputs change. Must live in this init block (not the earlier one)
+        // because phoneDiscovery and _activePhoneId are declared between the
+        // two init blocks and Kotlin initializes properties in declaration
+        // order.
+        viewModelScope.launch {
+            kotlinx.coroutines.flow.combine(
+                _activePhoneId,
+                phoneDiscovery.phones,
+                knownPhonesStore.phones,
+            ) { activeId, discovered, known ->
+                if (activeId.isNullOrBlank()) return@combine null
+                discovered.firstOrNull { it.phoneId == activeId }?.friendlyName
+                    ?: known.firstOrNull { it.phoneId == activeId }?.friendlyName
+            }.collect { name -> _phoneName.value = name }
+        }
         // Continuously run mDNS discovery while in Car Hotspot mode. This
         // keeps `knownPhones` "online" status fresh and lets the floating
         // switcher button surface phones the moment they appear on the AP.
