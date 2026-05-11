@@ -1001,7 +1001,18 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
      * transition: it stays true until the new session reaches STREAMING,
      * times out at 30s, or the user dismisses the projection.
      */
+    /** Reentrancy guard for [selectCarHotspotPhone]. The chooser row's
+     *  click handler can fire many times per physical tap on AAOS touch
+     *  surfaces (observed: 21× in 36ms in production logs). Without this
+     *  guard each fire launches a coroutine that does sessionManager.stop()
+     *  + connect(), racing 20 stops against one in-flight startup. */
+    @Volatile private var selectPhoneInFlight = false
+
     fun selectCarHotspotPhone(phone: com.openautolink.app.transport.PhoneDiscovery.DiscoveredPhone) {
+        if (selectPhoneInFlight) {
+            OalLog.d(TAG, "selectCarHotspotPhone ignored — another selection is in flight")
+            return
+        }
         _showPhoneChooser.value = false
         _carHotspotChooserMessage.value = null
         val phoneId = phone.phoneId
@@ -1010,7 +1021,21 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
             OalLog.w(TAG, "Cannot select phone — missing phone_id or host: $phone")
             return
         }
+        selectPhoneInFlight = true
         viewModelScope.launch {
+            try {
+                runSelectCarHotspotPhone(phone, phoneId, host)
+            } finally {
+                selectPhoneInFlight = false
+            }
+        }
+    }
+
+    private suspend fun runSelectCarHotspotPhone(
+        phone: com.openautolink.app.transport.PhoneDiscovery.DiscoveredPhone,
+        phoneId: String,
+        host: String,
+    ) {
             // Persist into the known-phones list. Auto-promote to default
             // only if there's no default set yet.
             knownPhonesStore.upsert(
@@ -1029,7 +1054,7 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
             // If this phone is already the active session, do nothing.
             if (_activePhoneId.value == phoneId) {
                 OalLog.i(TAG, "Already connected to id=${phoneId.take(8)}; no switch needed")
-                return@launch
+                return
             }
 
             OalLog.i(
@@ -1078,7 +1103,6 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
                 }
             }
             _carHotspotSwitching.value = false
-        }
     }
 
     /** Mark a phone as the auto-connect default and persist. */
