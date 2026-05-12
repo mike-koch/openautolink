@@ -491,8 +491,14 @@ fun ProjectionScreen(
                 .align(Alignment.BottomEnd)
                 .padding(end = 16.dp, bottom = 16.dp),
         ) {
-            val maxBoundsX = this.maxWidth.value
-            val maxBoundsY = this.maxHeight.value
+            // `maxWidth.value` returns DP, but the drag offset inside
+            // DraggableOverlayButton is in PIXELS. Passing the DP value
+            // was clamping the drag to ~screen_width/density pixels —
+            // i.e. an "invisible wall" roughly 1/3 of the way across the
+            // screen on common AAOS panel densities. Convert to pixels.
+            val density = LocalDensity.current
+            val maxBoundsX = with(density) { this@BoxWithConstraints.maxWidth.toPx() }
+            val maxBoundsY = with(density) { this@BoxWithConstraints.maxHeight.toPx() }
 
             Column {
                 // Settings button — draggable
