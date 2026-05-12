@@ -980,10 +980,19 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
                     val mode = connectionMode.value
                     if (mode != AppPreferences.CONNECTION_MODE_CAR_HOTSPOT) return@collect
                     if (alwaysAskPhone.value) return@collect
-                    // No default phone set → don't auto-connect; the user
-                    // will pick from the chooser when they're ready.
-                    if (defaultPhoneId.value.isBlank()) return@collect
                     if (!anyResolved) return@collect
+                    // First-run / data-wipe path: no default yet. Promote the
+                    // first resolved phone to default and use it. selectCar-
+                    // HotspotPhone handles the upsert + setDefaultPhoneId.
+                    if (defaultPhoneId.value.isBlank()) {
+                        val firstResolved = phoneDiscovery.phones.value
+                            .firstOrNull { it.isResolved && !it.phoneId.isNullOrBlank() && !it.host.isNullOrBlank() }
+                        if (firstResolved != null) {
+                            OalLog.i(TAG, "No default phone yet — auto-promoting first discovered '${firstResolved.friendlyName}'")
+                            selectCarHotspotPhone(firstResolved)
+                        }
+                        return@collect
+                    }
                     // Bail before logging if a connect is already running or
                     // the session is already past IDLE — saves logging spam
                     // when discovery emits multiple times during sweep.
