@@ -287,6 +287,35 @@ private fun ConnectionTab(viewModel: SettingsViewModel, uiState: SettingsUiState
         val knownPhones by viewModel.knownPhones.collectAsStateWithLifecycle()
         val defaultPhoneId by viewModel.defaultPhoneId.collectAsStateWithLifecycle()
 
+        // --- Transport (WiFi vs USB) ---
+        SectionHeader("Transport")
+        Spacer(modifier = Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            listOf(
+                "hotspot" to "Wi-Fi",
+                "usb" to "USB",
+            ).forEach { (mode, label) ->
+                FilterChip(
+                    selected = uiState.directTransport == mode,
+                    onClick = { viewModel.updateDirectTransport(mode) },
+                    label = { Text(label) },
+                )
+            }
+        }
+        Text(
+            text = when (uiState.directTransport) {
+                "usb" -> "Phone connects to the car over a USB cable using AOA v2. The Wi-Fi connection mode below is ignored. A device picker is shown on the projection screen so the OS only prompts for the phone you select."
+                else -> "Phone and car talk over the shared Wi-Fi network configured below."
+            },
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp),
+        )
+        Spacer(modifier = Modifier.height(12.dp))
+
         SectionHeader("Connection Mode")
         Spacer(modifier = Modifier.height(8.dp))
         Row(

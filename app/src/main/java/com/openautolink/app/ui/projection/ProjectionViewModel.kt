@@ -1080,6 +1080,10 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
     /** Whether the phone chooser overlay is showing. */
     val showPhoneChooser: StateFlow<Boolean> = _showPhoneChooser.asStateFlow()
 
+    /** Active transport ("hotspot" or "usb") — used by the projection screen
+     *  to decide whether to render the USB device picker. */
+    val transportMode: StateFlow<String> = sessionManager.transportMode
+
     /** Show the phone chooser: disconnect, restart discovery showing all phones. */
     fun showPhoneChooser() {
         _showPhoneChooser.value = true
