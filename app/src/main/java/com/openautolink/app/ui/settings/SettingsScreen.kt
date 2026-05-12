@@ -73,6 +73,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 
 import com.openautolink.app.session.SessionState
 import com.openautolink.app.data.AppPreferences
+import com.openautolink.app.ui.components.LocalEchoTextField
 import androidx.compose.material3.FilterChip
 
 private enum class SettingsTab(
@@ -523,13 +524,12 @@ private fun ConnectionTab(viewModel: SettingsViewModel, uiState: SettingsUiState
                     uiState.manualIpAddress.isBlank() || isValidIpv4(uiState.manualIpAddress)
                 }
 
-                OutlinedTextField(
+                LocalEchoTextField(
                     value = uiState.manualIpAddress,
-                    onValueChange = { input ->
-                        // Allow only digits and dots
-                        val filtered = input.filter { it.isDigit() || it == '.' }
+                    onValueChange = { filtered ->
                         viewModel.updateManualIpAddress(filtered)
                     },
+                    filter = { input -> input.filter { it.isDigit() || it == '.' } },
                     label = { Text("Phone IP Address") },
                     placeholder = { Text("e.g. 192.168.1.100") },
                     singleLine = true,
@@ -1590,12 +1590,13 @@ private fun VideoTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.width(140.dp),
             )
-            OutlinedTextField(
+            LocalEchoTextField(
                 value = if (uiState.aaWidthMargin == 0) "" else uiState.aaWidthMargin.toString(),
-                onValueChange = { value ->
-                    val margin = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+                onValueChange = { filtered ->
+                    val margin = filtered.toIntOrNull() ?: 0
                     viewModel.updateAaWidthMargin(margin.coerceIn(0, 1000))
                 },
+                filter = { it.filter { c -> c.isDigit() } },
                 placeholder = { Text("0 (auto)") },
                 singleLine = true,
                 modifier = Modifier.width(120.dp).testTag("aaWidthMargin"),
@@ -1616,12 +1617,13 @@ private fun VideoTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.width(140.dp),
             )
-            OutlinedTextField(
+            LocalEchoTextField(
                 value = if (uiState.aaHeightMargin == 0) "" else uiState.aaHeightMargin.toString(),
-                onValueChange = { value ->
-                    val margin = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+                onValueChange = { filtered ->
+                    val margin = filtered.toIntOrNull() ?: 0
                     viewModel.updateAaHeightMargin(margin.coerceIn(0, 1000))
                 },
+                filter = { it.filter { c -> c.isDigit() } },
                 placeholder = { Text("0 (auto)") },
                 singleLine = true,
                 modifier = Modifier.width(120.dp).testTag("aaHeightMargin"),
@@ -1665,12 +1667,13 @@ private fun VideoTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.width(140.dp),
             )
-            OutlinedTextField(
+            LocalEchoTextField(
                 value = if (uiState.aaViewingDistanceMm == 0) "" else uiState.aaViewingDistanceMm.toString(),
-                onValueChange = { value ->
-                    val mm = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+                onValueChange = { filtered ->
+                    val mm = filtered.toIntOrNull() ?: 0
                     viewModel.updateAaViewingDistanceMm(mm.coerceIn(0, 5000))
                 },
+                filter = { it.filter { c -> c.isDigit() } },
                 placeholder = { Text("0 (omit)") },
                 singleLine = true,
                 modifier = Modifier.width(120.dp).testTag("aaViewingDistanceMm"),
@@ -1690,12 +1693,13 @@ private fun VideoTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
                 style = MaterialTheme.typography.bodyLarge,
                 modifier = Modifier.width(140.dp),
             )
-            OutlinedTextField(
+            LocalEchoTextField(
                 value = if (uiState.aaDecoderAdditionalDepth == 0) "" else uiState.aaDecoderAdditionalDepth.toString(),
-                onValueChange = { value ->
-                    val depth = value.filter { it.isDigit() }.toIntOrNull() ?: 0
+                onValueChange = { filtered ->
+                    val depth = filtered.toIntOrNull() ?: 0
                     viewModel.updateAaDecoderAdditionalDepth(depth.coerceIn(0, 8))
                 },
+                filter = { it.filter { c -> c.isDigit() } },
                 placeholder = { Text("0 (omit)") },
                 singleLine = true,
                 modifier = Modifier.width(120.dp).testTag("aaDecoderAdditionalDepth"),
@@ -1778,12 +1782,13 @@ private fun VideoTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
                     style = MaterialTheme.typography.bodyLarge,
                     modifier = Modifier.width(180.dp),
                 )
-                OutlinedTextField(
+                LocalEchoTextField(
                     value = uiState.aaPixelAspect.toString(),
-                    onValueChange = { value ->
-                        val pa = value.filter { it.isDigit() }.toIntOrNull() ?: 10000
+                    onValueChange = { filtered ->
+                        val pa = filtered.toIntOrNull() ?: 10000
                         viewModel.updateAaPixelAspect(pa.coerceIn(1, 30000))
                     },
+                    filter = { it.filter { c -> c.isDigit() } },
                     placeholder = { Text("10000") },
                     singleLine = true,
                     modifier = Modifier.width(140.dp).testTag("aaPixelAspect"),
