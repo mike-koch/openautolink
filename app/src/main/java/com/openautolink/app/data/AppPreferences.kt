@@ -8,8 +8,11 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.launch
 
 private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
 
@@ -17,6 +20,22 @@ private val Context.dataStore: DataStore<Preferences> by preferencesDataStore(na
  * App preferences backed by DataStore.
  */
 class AppPreferences private constructor(private val dataStore: DataStore<Preferences>) {
+
+    init {
+        // Run one-shot migrations off the main thread. DataStore edits are
+        // serialized internally so this is safe even if other reads/writes
+        // race with it.
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                dataStore.edit { prefs ->
+                    if (prefs[CALL_AUDIO_DISABLE_MIGRATION_V1] != true) {
+                        prefs.remove(CALL_AUDIO_VIA_CAR)
+                        prefs[CALL_AUDIO_DISABLE_MIGRATION_V1] = true
+                    }
+                }
+            } catch (_: Exception) { /* best effort */ }
+        }
+    }
 
     companion object {
         @Volatile
@@ -40,6 +59,11 @@ class AppPreferences private constructor(private val dataStore: DataStore<Prefer
         // of relying on Bluetooth HFP. Lets users keep BT call/media
         // toggles off on the phone but still route calls to the car.
         val CALL_AUDIO_VIA_CAR = booleanPreferencesKey("call_audio_via_car")
+        // One-shot migration flag: when unset, the AppPreferences init coroutine
+        // wipes any previously-stored CALL_AUDIO_VIA_CAR value so 0.1.306/0.1.307
+        // installs (where this defaulted to true and crashed the AA session on
+        // some phones) revert to the safe off-by-default state on next launch.
+        val CALL_AUDIO_DISABLE_MIGRATION_V1 = booleanPreferencesKey("call_audio_disable_migration_v1")
         val SYNC_AA_THEME = booleanPreferencesKey("sync_aa_theme")
         val HIDE_AA_CLOCK = booleanPreferencesKey("hide_aa_clock")
         val HIDE_PHONE_SIGNAL = booleanPreferencesKey("hide_phone_signal")
@@ -164,7 +188,7 @@ class AppPreferences private constructor(private val dataStore: DataStore<Prefer
         const val DEFAULT_VIDEO_FPS = 60
         const val DEFAULT_DISPLAY_MODE = "fullscreen_immersive"
         const val DEFAULT_MIC_SOURCE = "car"
-        const val DEFAULT_CALL_AUDIO_VIA_CAR = true
+        const val DEFAULT_CALL_AUDIO_VIA_CAR = false
         const val DEFAULT_SYNC_AA_THEME = true
         const val DEFAULT_HIDE_AA_CLOCK = false
         const val DEFAULT_HIDE_PHONE_SIGNAL = false

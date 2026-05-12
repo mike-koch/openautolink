@@ -2168,15 +2168,16 @@ private fun AudioTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Route calls through car",
+                    text = "Route calls through car (experimental)",
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = FontWeight.SemiBold,
                 )
                 Text(
                     text = "Stream in-call audio over Android Auto so the car " +
                         "mic and speakers are used even when Bluetooth Call " +
-                        "audio is disabled on the phone. Requires Save & Reconnect. " +
-                        "Disable if calls fail to connect.",
+                        "audio is disabled on the phone. Known to crash the AA " +
+                        "session on some phones — leave off unless you've tested it. " +
+                        "Requires Save & Reconnect.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
