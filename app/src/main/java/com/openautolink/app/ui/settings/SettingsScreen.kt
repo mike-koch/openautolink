@@ -1956,12 +1956,26 @@ private fun InputTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
         // AlertDialog runs in its own Window so `Activity.dispatchKeyEvent`
         // is also bypassed — we have to hook the dialog window's callback.
         DisposableEffect(target) {
+            com.openautolink.app.diagnostics.OalLog.i(
+                "KeyRemapDialog",
+                "Capture dialog opened for target=${target.label} (aaKeycode=${target.aaKeycode}) — installing listener",
+            )
             com.openautolink.app.input.KeyCaptureBus.listener = { code ->
                 val name = android.view.KeyEvent.keyCodeToString(code)
                     .removePrefix("KEYCODE_")
+                com.openautolink.app.diagnostics.OalLog.i(
+                    "KeyRemapDialog",
+                    "Listener fired: keycode=$code name=$name",
+                )
                 lastDetectedKey = code to name
             }
-            onDispose { com.openautolink.app.input.KeyCaptureBus.listener = null }
+            onDispose {
+                com.openautolink.app.diagnostics.OalLog.i(
+                    "KeyRemapDialog",
+                    "Capture dialog closing — clearing listener",
+                )
+                com.openautolink.app.input.KeyCaptureBus.listener = null
+            }
         }
 
         // Hook the dialog's own Window so steering-wheel keys delivered to
@@ -1979,9 +1993,20 @@ private fun InputTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
             }
             val window = provider?.window
             val original = window?.callback
+            com.openautolink.app.diagnostics.OalLog.i(
+                "KeyRemapDialog",
+                "Window hook setup: providerFound=${provider != null} " +
+                    "windowFound=${window != null} originalCallbackPresent=${original != null}",
+            )
             if (window != null && original != null) {
                 window.callback = object : android.view.Window.Callback by original {
                     override fun dispatchKeyEvent(event: android.view.KeyEvent): Boolean {
+                        com.openautolink.app.diagnostics.OalLog.i(
+                            "KeyRemapDialog",
+                            "Dialog window dispatchKeyEvent: keycode=${event.keyCode} " +
+                                "(${android.view.KeyEvent.keyCodeToString(event.keyCode)}) " +
+                                "action=${event.action} source=0x${Integer.toHexString(event.source)}",
+                        )
                         if (com.openautolink.app.input.KeyCaptureBus.handle(event)) return true
                         return original.dispatchKeyEvent(event)
                     }
