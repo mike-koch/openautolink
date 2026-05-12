@@ -66,18 +66,35 @@ class TcpConnector(
         isRunning = true
         OalLog.i(TAG, "Starting TCP connector (port $COMPANION_PORT)")
 
-        val manual = manualIp?.takeIf { it.isNotBlank() }
-        if (manual != null) {
-            OalLog.i(TAG, "Manual IP mode: $manual")
+        // Manual IP may be either "host" or "host:port". If a port is given it
+        // overrides COMPANION_PORT — used by the debug discovery-injection
+        // path (DEBUG_INJECT_PHONE), and harmless when omitted in production
+        // since every companion listens on the canonical port.
+        val raw = manualIp?.takeIf { it.isNotBlank() }
+        val manualHost: String?
+        val manualPort: Int
+        if (raw != null) {
+            val colonIdx = raw.lastIndexOf(':')
+            val parsedPort = if (colonIdx > 0) raw.substring(colonIdx + 1).toIntOrNull() else null
+            if (parsedPort != null && parsedPort in 1..65535 && !raw.contains(']')) {
+                manualHost = raw.substring(0, colonIdx)
+                manualPort = parsedPort
+            } else {
+                manualHost = raw
+                manualPort = COMPANION_PORT
+            }
+            OalLog.i(TAG, "Manual IP mode: $manualHost:$manualPort")
         } else {
+            manualHost = null
+            manualPort = COMPANION_PORT
             startNsdDiscovery()
         }
 
         connectJob = scope.launch(Dispatchers.IO) {
             while (isActive && isRunning) {
                 // Manual IP — skip all discovery, connect directly
-                if (manual != null) {
-                    if (tryConnect(manual, COMPANION_PORT, "manual")) return@launch
+                if (manualHost != null) {
+                    if (tryConnect(manualHost, manualPort, "manual")) return@launch
                     onConnectFailure?.invoke()
                     delay(RETRY_DELAY_MS)
                     continue

@@ -496,7 +496,18 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
                 // IP, the user can press Scan in the chooser.
                 resolveCarHotspotPhone(timeoutMs = 45_000)
             } else null
-            val carHotspotIp: String? = carHotspotPhone?.host
+            val carHotspotIp: String? = carHotspotPhone?.let { phone ->
+                // Append the discovered port if it differs from the canonical
+                // companion port. Production phones all use 5277 so this is
+                // usually a no-op; the debug discovery-injection broadcast
+                // can specify other ports for emulator-via-USB testing.
+                val host = phone.host ?: return@let null
+                if (phone.port != 0 && phone.port != com.openautolink.app.transport.hotspot.TcpConnector.COMPANION_PORT) {
+                    "$host:${phone.port}"
+                } else {
+                    host
+                }
+            }
             val manualIp = overrideIp ?: carHotspotIp ?: manualIpFromPrefs
             if (mode == AppPreferences.CONNECTION_MODE_CAR_HOTSPOT) {
                 OalLog.i(
@@ -1167,7 +1178,14 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
             _activePhoneId.value = phoneId
             sessionManager.stop()
             hasConnected = false
-            connect(overrideIp = host)
+            // Encode the port into the override string when it isn't the
+            // canonical 5277 — TcpConnector parses "host:port" form so the
+            // debug discovery-injection path can target USB-forwarded ports.
+            val overrideStr = if (
+                phone.port != 0 &&
+                phone.port != com.openautolink.app.transport.hotspot.TcpConnector.COMPANION_PORT
+            ) "$host:${phone.port}" else host
+            connect(overrideIp = overrideStr)
 
             // Wait for the new session to settle. STREAMING means success;
             // any IDLE *after* we've seen at least one CONNECTING means the
