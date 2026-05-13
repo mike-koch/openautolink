@@ -59,6 +59,15 @@ class AppPreferences private constructor(private val dataStore: DataStore<Prefer
         // of relying on Bluetooth HFP. Lets users keep BT call/media
         // toggles off on the phone but still route calls to the car.
         val CALL_AUDIO_VIA_CAR = booleanPreferencesKey("call_audio_via_car")
+        // Manual override for the head unit's Bluetooth MAC, advertised in
+        // the AA ServiceDiscoveryResponse's bluetooth_service.car_address.
+        // Some AAOS builds return empty / 02:00:00:00:00:00 / "None" from
+        // both Settings.Secure["bluetooth_address"] and BluetoothAdapter
+        // .getAddress(), in which case we drop the BT channel entirely and
+        // the phone won't route call audio over AA. Users can read the real
+        // MAC from AAOS Settings -> About -> Bluetooth address and paste it
+        // here. Empty = auto-detect.
+        val BT_MAC_OVERRIDE = stringPreferencesKey("bt_mac_override")
         // One-shot migration flag: when unset, the AppPreferences init coroutine
         // wipes any previously-stored CALL_AUDIO_VIA_CAR value so 0.1.306/0.1.307
         // installs (where this defaulted to true and crashed the AA session on
@@ -189,6 +198,7 @@ class AppPreferences private constructor(private val dataStore: DataStore<Prefer
         const val DEFAULT_DISPLAY_MODE = "fullscreen_immersive"
         const val DEFAULT_MIC_SOURCE = "car"
         const val DEFAULT_CALL_AUDIO_VIA_CAR = false
+        const val DEFAULT_BT_MAC_OVERRIDE = ""
         const val DEFAULT_SYNC_AA_THEME = true
         const val DEFAULT_HIDE_AA_CLOCK = false
         const val DEFAULT_HIDE_PHONE_SIGNAL = false
@@ -304,6 +314,10 @@ class AppPreferences private constructor(private val dataStore: DataStore<Prefer
 
     val callAudioViaCar: Flow<Boolean> = dataStore.data.map { prefs ->
         prefs[CALL_AUDIO_VIA_CAR] ?: DEFAULT_CALL_AUDIO_VIA_CAR
+    }
+
+    val btMacOverride: Flow<String> = dataStore.data.map { prefs ->
+        prefs[BT_MAC_OVERRIDE] ?: DEFAULT_BT_MAC_OVERRIDE
     }
 
     val syncAaTheme: Flow<Boolean> = dataStore.data.map { prefs ->
@@ -535,6 +549,12 @@ class AppPreferences private constructor(private val dataStore: DataStore<Prefer
 
     suspend fun setCallAudioViaCar(enabled: Boolean) {
         dataStore.edit { it[CALL_AUDIO_VIA_CAR] = enabled }
+    }
+
+    /** Normalise a user-entered MAC: strip whitespace, uppercase, accept blank to clear. */
+    suspend fun setBtMacOverride(mac: String) {
+        val cleaned = mac.trim().uppercase().replace('-', ':')
+        dataStore.edit { it[BT_MAC_OVERRIDE] = cleaned }
     }
 
     suspend fun setSyncAaTheme(enabled: Boolean) {

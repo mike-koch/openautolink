@@ -661,12 +661,25 @@ class SessionManager(
 
         // Get BT MAC — BluetoothAdapter.getAddress() returns 02:00:00:00:00:00
         // on Android 8+ due to privacy. Try Settings.Secure first, then adapter.
-        // GM AAOS returns literal "None" for missing properties.
+        // GM AAOS returns literal "None" for missing properties. Some builds
+        // refuse both: in that case the user can paste a real MAC into the
+        // BT MAC override setting, which takes precedence over auto-detect.
         var btMac = ""
         try {
-            btMac = android.provider.Settings.Secure.getString(
-                ctx.contentResolver, "bluetooth_address") ?: ""
+            val override = AppPreferences.getInstance(ctx).btMacOverride.first().trim()
+            if (override.isNotEmpty()
+                && override != "02:00:00:00:00:00"
+                && !override.equals("none", ignoreCase = true)) {
+                btMac = override.uppercase().replace('-', ':')
+                OalLog.i(TAG, "BT MAC override in use: $btMac")
+            }
         } catch (_: Exception) {}
+        if (btMac.isEmpty()) {
+            try {
+                btMac = android.provider.Settings.Secure.getString(
+                    ctx.contentResolver, "bluetooth_address") ?: ""
+            } catch (_: Exception) {}
+        }
         if (btMac.isEmpty() || btMac == "02:00:00:00:00:00"
             || btMac.equals("none", ignoreCase = true)) {
             btMac = ""

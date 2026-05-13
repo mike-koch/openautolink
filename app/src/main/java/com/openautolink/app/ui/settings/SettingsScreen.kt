@@ -2189,6 +2189,42 @@ private fun AudioTab(viewModel: SettingsViewModel, uiState: SettingsUiState) {
             )
         }
 
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // BT MAC override — for AAOS builds where Settings.Secure[
+        // "bluetooth_address"] / BluetoothAdapter.getAddress() return empty
+        // or 02:00:00:00:00:00. Without a real MAC in the SDR's
+        // bluetooth_service.car_address, the phone won't route call audio
+        // over Android Auto. User can read the real MAC from AAOS Settings
+        // -> About -> Bluetooth address and paste it here.
+        Column(
+            modifier = Modifier.fillMaxWidth(0.7f).padding(vertical = 8.dp),
+        ) {
+            Text(
+                text = "Bluetooth MAC override",
+                style = MaterialTheme.typography.bodyLarge,
+                fontWeight = FontWeight.SemiBold,
+            )
+            Text(
+                text = "Leave blank to auto-detect. If auto-detect returns empty " +
+                    "or 02:00:00:00:00:00, calls won't route through the car. " +
+                    "Read your head unit's BT MAC from Settings → About → " +
+                    "Bluetooth address and paste it here (format AA:BB:CC:DD:EE:FF). " +
+                    "Requires Save & Reconnect.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(bottom = 8.dp),
+            )
+            LocalEchoTextField(
+                value = uiState.btMacOverride,
+                onValueChange = { filtered -> viewModel.updateBtMacOverride(filtered) },
+                filter = { it.filter { c -> c.isLetterOrDigit() || c == ':' || c == '-' }.take(17).uppercase() },
+                placeholder = { Text("AA:BB:CC:DD:EE:FF") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth().testTag("btMacOverride"),
+            )
+        }
+
         Spacer(modifier = Modifier.height(24.dp))
 
         HorizontalDivider(modifier = Modifier.fillMaxWidth(0.7f))

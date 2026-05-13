@@ -25,6 +25,7 @@ data class SettingsUiState(
     val displayMode: String = AppPreferences.DEFAULT_DISPLAY_MODE,
     val micSource: String = AppPreferences.DEFAULT_MIC_SOURCE,
     val callAudioViaCar: Boolean = AppPreferences.DEFAULT_CALL_AUDIO_VIA_CAR,
+    val btMacOverride: String = AppPreferences.DEFAULT_BT_MAC_OVERRIDE,
     val videoScalingMode: String = AppPreferences.DEFAULT_VIDEO_SCALING_MODE,
     val aaResolution: String = AppPreferences.DEFAULT_AA_RESOLUTION,
     val aaDpi: Int = AppPreferences.DEFAULT_AA_DPI,
@@ -118,6 +119,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         preferences.manualIpEnabled,
         preferences.manualIpAddress,
         preferences.callAudioViaCar,
+        preferences.btMacOverride,
     ) { values: Array<Any> ->
         SettingsUiState(
             videoAutoNegotiate = values[0] as Boolean,
@@ -161,6 +163,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
             manualIpEnabled = values[38] as Boolean,
             manualIpAddress = values[39] as String,
             callAudioViaCar = values[40] as Boolean,
+            btMacOverride = values[41] as String,
         )
     }.stateIn(
         viewModelScope,
@@ -311,6 +314,10 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun updateCallAudioViaCar(enabled: Boolean) {
         viewModelScope.launch { preferences.setCallAudioViaCar(enabled) }
+    }
+
+    fun updateBtMacOverride(mac: String) {
+        viewModelScope.launch { preferences.setBtMacOverride(mac) }
     }
 
     fun updateVideoScalingMode(mode: String) {
