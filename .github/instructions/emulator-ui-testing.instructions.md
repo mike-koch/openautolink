@@ -110,15 +110,35 @@ Content starts at x=104. Radio buttons at x ~120-130, labels at x ~164+. The cli
 
 ## Multi-Phone & Direct-Mode Testing
 
-The emulator's user-mode NAT (10.0.2.0/24) **cannot see real mDNS** on your home WiFi, so phones never auto-discover. Two workarounds for direct/JNI mode tests:
+The emulator's user-mode NAT (10.0.2.0/24) **cannot see real mDNS** on your home WiFi, so phones never auto-discover. The emulator CAN reach phones via outbound TCP through host NAT (`10.0.2.15 → 10.0.2.2 → host LAN`). Three ways to bootstrap a phone into discovery:
 
-### A) Manual IP pref → auto-injects as `debug_test_phone`
+### A) `SET_PREF` broadcast → manualIp auto-inject (preferred, no UI)
 
-Settings → Connection → enable **Manual IP** and enter the phone's LAN IP (e.g. `192.168.1.174`). On every launch, `ProjectionViewModel` watches the pref and calls `phoneDiscovery.injectDebugPhone(host=ip)` with the default `phone_id=debug_test_phone`, `name="Test Phone (debug)"`. This is the OnePlus-default rig path.
+The `SettingsReceiver` (manifest-registered, exported) lets you write any DataStore pref via ADB without launching settings UI. Setting `manual_ip_enabled=true` + `manual_ip_address=<phone-ip>` makes `ProjectionViewModel` inject the phone into discovery on next launch (`phone_id=debug_test_phone`, `name="Test Phone (debug)"`).
+
+```powershell
+$adb = "$env:LOCALAPPDATA\Android\Sdk\platform-tools\adb.exe"
+# App must be alive for the broadcast to be received (statically-registered
+# receiver still needs the process running). Launch once, then SET_PREF, then
+# force-stop + relaunch to apply.
+& $adb -s emulator-5554 shell monkey -p com.openautolink.app -c android.intent.category.LAUNCHER 1
+Start-Sleep -Seconds 3
+& $adb -s emulator-5554 shell "am broadcast -a com.openautolink.app.SET_PREF --es key manual_ip_enabled --ez bvalue true com.openautolink.app"
+& $adb -s emulator-5554 shell "am broadcast -a com.openautolink.app.SET_PREF --es key manual_ip_address --es svalue 192.168.1.174 com.openautolink.app"
+# Verify receiver fired:
+& $adb -s emulator-5554 logcat -d | Select-String 'SettingsRcv.*manual_ip'
+# Restart so the new pref takes effect:
+& $adb -s emulator-5554 shell am force-stop com.openautolink.app
+& $adb -s emulator-5554 shell monkey -p com.openautolink.app -c android.intent.category.LAUNCHER 1
+```
+
+Full pref list and key names: see [SettingsReceiver.kt](app/src/main/java/com/openautolink/app/diagnostics/SettingsReceiver.kt) (KDoc header). Supports `aa_dpi`, `aa_resolution`, `video_codec`, `manual_ip_enabled`, `manual_ip_address`, `call_audio_via_car`, `bt_mac_override`, and more.
+
+**Watch out**: `pm clear com.openautolink.app` does NOT reset manualIp on the next launch reliably — the prior value persists somehow (DataStore quirk). After `pm clear`, the very first launch may still inject the old IP. Always re-set via `SET_PREF` after a clear.
 
 ### B) `DEBUG_INJECT_PHONE` broadcast (multi-phone scenarios)
 
-Register sites: `SessionManager.registerDebugReceiver()` — called from inside `startSession`, so **the receiver is only live after at least one session attempt**. For a clean cold-launch test, use option A to bootstrap, then broadcast additional phones.
+Register sites: `SessionManager.registerDebugReceiver()` — called from inside `startSession`, so **the receiver is only live after at least one session attempt**. For a clean cold-launch test, bootstrap with `SET_PREF`/manualIp first, then broadcast additional phones.
 
 ```powershell
 adb shell "am broadcast -a com.openautolink.app.DEBUG_INJECT_PHONE \
