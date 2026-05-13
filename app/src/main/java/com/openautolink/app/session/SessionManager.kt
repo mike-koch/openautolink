@@ -666,7 +666,9 @@ class SessionManager(
         // BT MAC override setting, which takes precedence over auto-detect.
         var btMac = ""
         try {
-            val override = AppPreferences.getInstance(ctx).btMacOverride.first().trim()
+            val override = kotlinx.coroutines.runBlocking {
+                AppPreferences.getInstance(ctx).btMacOverride.first().trim()
+            }
             if (override.isNotEmpty()
                 && override != "02:00:00:00:00:00"
                 && !override.equals("none", ignoreCase = true)) {
