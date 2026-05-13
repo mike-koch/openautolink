@@ -238,6 +238,10 @@ fun ProjectionScreen(
             SurfaceView(context).apply {
                 holder.addCallback(object : SurfaceHolder.Callback {
                     override fun surfaceCreated(holder: SurfaceHolder) {
+                        com.openautolink.app.diagnostics.DiagnosticLog.i(
+                            "video",
+                            "SurfaceView.surfaceCreated: ${holder.surfaceFrame.width()}x${holder.surfaceFrame.height()}"
+                        )
                         viewModel.onSurfaceAvailable(
                             holder.surface,
                             holder.surfaceFrame.width(),
@@ -251,10 +255,18 @@ fun ProjectionScreen(
                         width: Int,
                         height: Int
                     ) {
+                        com.openautolink.app.diagnostics.DiagnosticLog.i(
+                            "video",
+                            "SurfaceView.surfaceChanged: ${width}x${height} format=0x${Integer.toHexString(format)}"
+                        )
                         viewModel.onSurfaceAvailable(holder.surface, width, height)
                     }
 
                     override fun surfaceDestroyed(holder: SurfaceHolder) {
+                        com.openautolink.app.diagnostics.DiagnosticLog.i(
+                            "video",
+                            "SurfaceView.surfaceDestroyed"
+                        )
                         viewModel.onSurfaceDestroyed()
                     }
                 })

@@ -1259,6 +1259,26 @@ class SessionManager(
     }
 
     /**
+     * Called from [MainActivity.onConfigurationChanged] when the system
+     * UI night-mode flag flips. On real GM hardware, the VHAL NIGHT_MODE
+     * property drives the AA theme via [VehicleDataForwarder]; this hook
+     * covers AAOS images (and emulators) where the head unit theme is
+     * driven by [Configuration.uiMode] rather than VHAL.
+     *
+     * Always forwards — does NOT dedupe against [lastSentNightMode]. The
+     * VHAL path emits its (possibly stale) value every ~100ms and would
+     * otherwise reset [lastSentNightMode] between our UI events, silently
+     * dropping the back-flip. UI changes are discrete user actions, so an
+     * occasional duplicate event to the phone is harmless.
+     */
+    fun onUiNightModeChanged(night: Boolean) {
+        val session = aasdkSession ?: return
+        lastSentNightMode = night
+        OalLog.i(TAG, "UI night mode → $night (forwarding to phone)")
+        session.sendNightMode(night)
+    }
+
+    /**
      * Single entry point for "the system just woke up". Called from multiple
      * sources (Activity.onResume + SCREEN_ON / USER_PRESENT broadcasts);
      * deduplicated via [WAKE_DEDUPE_MS] so a second source firing within a

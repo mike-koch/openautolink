@@ -1527,7 +1527,7 @@ class ProjectionViewModel(application: Application) : AndroidViewModel(applicati
         _showStats.value = !_showStats.value
     }
 
-    private var fileLogToggleLock = Any()
+    private val fileLogToggleLock: Any by lazy { Any() }
 
     /** True while the auto-start-on-USB pref owns the current file-logger session.
      *  When the user manually stops via the overlay record button we clear this

@@ -117,6 +117,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
+        com.openautolink.app.diagnostics.DiagnosticLog.i("lifecycle", "MainActivity.onResume")
         // On AAOS, resume after car sleep leaves TCP sockets dead.
         // SessionManager dedupes against the SCREEN_ON broadcast receiver
         // (which empirically does not fire on this car) and emits a wake
@@ -126,11 +127,58 @@ class MainActivity : ComponentActivity() {
 
     override fun onPause() {
         super.onPause()
+        com.openautolink.app.diagnostics.DiagnosticLog.i("lifecycle", "MainActivity.onPause")
         // Mirror onResume on the sleep side. Lets the next markWake compute
         // gap from "going idle" rather than "last control message", which
         // matters when streaming keeps lastActiveTimestamp fresh right up
         // until the SoC suspends.
         com.openautolink.app.session.SessionManager.instanceOrNull()?.onActivityPaused()
+    }
+
+    override fun onStart() {
+        super.onStart()
+        com.openautolink.app.diagnostics.DiagnosticLog.i("lifecycle", "MainActivity.onStart")
+    }
+
+    override fun onStop() {
+        super.onStop()
+        com.openautolink.app.diagnostics.DiagnosticLog.i("lifecycle", "MainActivity.onStop")
+    }
+
+    override fun onTopResumedActivityChanged(isTopResumedActivity: Boolean) {
+        super.onTopResumedActivityChanged(isTopResumedActivity)
+        com.openautolink.app.diagnostics.DiagnosticLog.i(
+            "lifecycle",
+            "MainActivity.onTopResumedActivityChanged: top=$isTopResumedActivity"
+        )
+    }
+
+    override fun onWindowFocusChanged(hasFocus: Boolean) {
+        super.onWindowFocusChanged(hasFocus)
+        com.openautolink.app.diagnostics.DiagnosticLog.i(
+            "lifecycle",
+            "MainActivity.onWindowFocusChanged: focus=$hasFocus"
+        )
+    }
+
+    override fun onConfigurationChanged(newConfig: android.content.res.Configuration) {
+        super.onConfigurationChanged(newConfig)
+        val nightMask = newConfig.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK
+        val nightStr = when (nightMask) {
+            android.content.res.Configuration.UI_MODE_NIGHT_YES -> "YES"
+            android.content.res.Configuration.UI_MODE_NIGHT_NO -> "NO"
+            android.content.res.Configuration.UI_MODE_NIGHT_UNDEFINED -> "UNDEFINED"
+            else -> "0x${Integer.toHexString(nightMask)}"
+        }
+        com.openautolink.app.diagnostics.DiagnosticLog.i(
+            "lifecycle",
+            "MainActivity.onConfigurationChanged: nightMode=$nightStr uiMode=0x${Integer.toHexString(newConfig.uiMode)} orient=${newConfig.orientation} ${newConfig.screenWidthDp}x${newConfig.screenHeightDp}dp"
+        )
+        if (nightMask == android.content.res.Configuration.UI_MODE_NIGHT_YES ||
+            nightMask == android.content.res.Configuration.UI_MODE_NIGHT_NO) {
+            val isNight = nightMask == android.content.res.Configuration.UI_MODE_NIGHT_YES
+            com.openautolink.app.session.SessionManager.instanceOrNull()?.onUiNightModeChanged(isNight)
+        }
     }
 
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
