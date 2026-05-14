@@ -99,6 +99,10 @@ jobs:
             --no-daemon
 
       - name: Build companion APK
+        env:
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
+          UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
+          UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
           ./gradlew :companion:assembleRelease --no-daemon
 
