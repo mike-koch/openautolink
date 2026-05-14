@@ -89,7 +89,7 @@ jobs:
 
       - name: Build signed AAB
         env:
-          UPLOAD_KEY_ALIAS: upload
+          UPLOAD_KEY_ALIAS: ${{ secrets.UPLOAD_KEY_ALIAS }}
           UPLOAD_KEY_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
           UPLOAD_STORE_PASSWORD: ${{ secrets.UPLOAD_KEY_PASSWORD }}
         run: |
